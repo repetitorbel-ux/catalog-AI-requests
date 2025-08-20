@@ -16,20 +16,16 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Проверка и создание директории instance
-db_uri = app.config['SQLALCHEMY_DATABASE_URI']
-parsed = sql_url.make_url(db_uri)
-db_path = parsed.database
-db_dir = os.path.dirname(db_path)
-if not os.path.exists(db_dir):
-    os.makedirs(db_dir)
-
 # Проверка и создание директории backups
 if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
 
 # Инициализация базы данных
 db.init_app(app)
+
+# Создание всех таблиц при старте
+with app.app_context():
+    db.create_all()
 
 # Импорт моделей
 from models import Category, Subcategory, Entry, Url
