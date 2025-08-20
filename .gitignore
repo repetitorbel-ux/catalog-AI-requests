@@ -19,3 +19,6 @@ catalog.md
 
 # Backup files
 *.bak
+
+# Migration scripts
+migrate_data.py
