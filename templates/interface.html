@@ -210,7 +210,7 @@
                         entries.forEach(entry => {
                             // Добавляем выделение для обновленной записи
                             var li = document.createElement('li');
-                            li.innerHTML = `<strong>${entry.title}</strong> <a href="#" onclick="showEditForm(${entry.id}, '${entry.title.replace(/'/g, "\\'")}', '${entry.urls.join('\\n').replace(/'/g, "\\'")}')">Редактировать</a>`;
+                            li.innerHTML = `<strong>${entry.title}</strong> <a href="#" onclick="showEditForm(${entry.id}, '${entry.title.replace(/'/g, "\'")}', '${entry.urls.join('\n').replace(/'/g, "\'")}')">Редактировать</a>`;
                             li.setAttribute('data-entry-id', entry.id);
                             if (entry.urls && entry.urls.length > 0) {
                                 var ul = document.createElement('ul');
@@ -311,6 +311,7 @@
                 <button class="tab-button active" onclick="openTab('add')">Добавление</button>
                 <button class="tab-button" onclick="openTab('edit')">Редактирование</button>
                 <button class="tab-button" onclick="openTab('delete')">Удаление</button>
+                <button class="tab-button" onclick="openTab('backup')">Резервное копирование</button>
                 <button class="tab-button" onclick="openTab('restore')">Восстановление</button>
             </div>
 
@@ -418,8 +419,17 @@
                 </form>
             </div>
 
+            <div id="backup" class="tab-content">
+                <h2>Резервное копирование</h2>
+                <p>Нажмите кнопку ниже, чтобы создать новую резервную копию базы данных в формате SQL.</p>
+                <form action="{{ url_for('catalog.backup') }}" method="POST">
+                    <button type="submit">Создать резервную копию</button>
+                </form>
+            </div>
+
             <div id="restore" class="tab-content">
                 <h2>Восстановление из бэкапа</h2>
+                <p>Выберите файл для восстановления. Внимание: все текущие данные будут заменены данными из бэкапа.</p>
                 <div class="backup-list">
                     {% for backup in backup_files %}
                         <div class="backup-item">
@@ -428,6 +438,8 @@
                                 <button type="submit">Восстановить</button>
                             </form>
                         </div>
+                    {% else %}
+                        <p>Резервные копии не найдены.</p>
                     {% endfor %}
                 </div>
             </div>

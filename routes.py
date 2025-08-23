@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, send_file
 import os
+from sqlalchemy import text
 from models import Category, Subcategory, Entry, Url
 from utils import normalize, create_backup, restore_backup
 from config import MARKDOWN_FILE, BACKUP_DIR
@@ -15,7 +16,9 @@ catalog_bp = Blueprint('catalog', __name__)
 def index():
     categories = Category.query.all()
     logger.debug(f"Загружено категорий: {len(categories)}")
-    backup_files = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith('.db')], reverse=True)
+    if not os.path.exists(BACKUP_DIR):
+        os.makedirs(BACKUP_DIR)
+    backup_files = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith('.sqlc') or f.endswith('.sql') or f.endswith('.db')], reverse=True)
     return render_template('interface.html', categories=categories, backup_files=backup_files)
 
 @catalog_bp.route('/add', methods=['POST'])
@@ -76,7 +79,6 @@ def add():
     else:
         logger.warning('Попытка добавления записи без заголовка или ссылок')
     
-    create_backup()
     return redirect(url_for('catalog.index'))
 
 @catalog_bp.route('/edit', methods=['POST'])
@@ -97,7 +99,6 @@ def edit():
     else:
         logger.warning(f"Запись с ID {entry_id} не найдена")
     
-    create_backup()
     return redirect(url_for('catalog.index'))
 
 @catalog_bp.route('/delete/entry', methods=['POST'])
@@ -112,7 +113,6 @@ def delete_entry():
     else:
         logger.warning(f"Entry with ID {entry_id} not found")
     
-    create_backup()
     return redirect(url_for('catalog.index'))
 
 @catalog_bp.route('/delete/category', methods=['POST'])
@@ -127,7 +127,6 @@ def delete_category():
     else:
         logger.warning(f"Category with ID {category_id} not found")
     
-    create_backup()
     return redirect(url_for('catalog.index'))
 
 @catalog_bp.route('/delete/subcategory', methods=['POST'])
@@ -142,7 +141,15 @@ def delete_subcategory():
     else:
         logger.warning(f"Subcategory with ID {subcategory_id} not found")
     
-    create_backup()
+    return redirect(url_for('catalog.index'))
+
+@catalog_bp.route('/backup', methods=['POST'])
+def backup():
+    try:
+        create_backup()
+        logger.info("Backup created successfully by user.")
+    except Exception as e:
+        logger.error(f"Failed to create backup by user: {e}")
     return redirect(url_for('catalog.index'))
 
 @catalog_bp.route('/restore/<path:filename>', methods=['POST'])
@@ -234,7 +241,6 @@ def edit_entry():
             if url_str:
                 db.session.add(Url(url=url_str, entry_id=entry_id))
         db.session.commit()
-        create_backup()
         logger.info(f"Запись {entry.title} (ID: {entry_id}) отредактирована")
         return jsonify({'status': 'success'})
     logger.warning(f"Запись с ID {entry_id} не найдена")

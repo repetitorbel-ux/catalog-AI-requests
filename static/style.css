@@ -95,6 +95,7 @@ a:hover {
 /* Вкладки */
 .tabs {
     display: flex;
+    flex-wrap: wrap; /* Добавлено для переноса кнопок */
     gap: 5px;
     margin-bottom: 15px;
 }
