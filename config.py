@@ -2,6 +2,9 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Ключ для подписи сессий (необходим для flash-сообщений)
+SECRET_KEY = 'dev-secret-key-for-flask-flashing' # Для реального приложения стоит сгенерировать случайную строку
+
 # --- Основная конфигурация базы данных ---
 
 # --- Удаленная БД (Neon) ---

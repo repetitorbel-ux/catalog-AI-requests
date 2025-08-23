@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, send_file, flash
 import os
 from sqlalchemy import text
 from models import Category, Subcategory, Entry, Url
@@ -38,10 +38,8 @@ def add():
     urls_str = data.get('urls', '')
     urls = [url.strip() for url in urls_str.split('\n') if url.strip()] if urls_str else []
 
-    logger.debug(f"Добавление записи: category={category_name}, subcategory={subcategory_name}, title={entry_title}, urls={urls}")
-
-    if not category_name:
-        logger.warning("Не указано имя категории")
+    if not category_name or not subcategory_name or not entry_title or not urls:
+        flash('Все поля, кроме выбора существующих, должны быть заполнены для добавления записи.', 'error')
         return redirect(url_for('catalog.index'))
 
     category = Category.query.filter_by(name=category_name).first()
@@ -51,10 +49,6 @@ def add():
         db.session.commit()
         logger.info(f"Создана новая категория: {category_name}")
 
-    if not subcategory_name:
-        logger.warning("Не указано имя подкатегории")
-        return redirect(url_for('catalog.index'))
-
     subcategory = Subcategory.query.filter_by(name=subcategory_name, category_id=category.id).first()
     if not subcategory:
         subcategory = Subcategory(name=subcategory_name, category_id=category.id)
@@ -62,22 +56,19 @@ def add():
         db.session.commit()
         logger.info(f"Создана новая подкатегория: {subcategory_name}")
 
-    if entry_title and urls:
-        entry = Entry.query.filter_by(title=entry_title, subcategory_id=subcategory.id).first()
-        if not entry:
-            entry = Entry(title=entry_title, subcategory_id=subcategory.id)
-            db.session.add(entry)
-            db.session.commit()
-            logger.info(f"Создана новая запись: {entry_title}")
-
-        Url.query.filter_by(entry_id=entry.id).delete()
-        for url_str in urls:
-            if url_str:
-                db.session.add(Url(url=url_str, entry_id=entry.id))
+    entry = Entry.query.filter_by(title=entry_title, subcategory_id=subcategory.id).first()
+    if not entry:
+        entry = Entry(title=entry_title, subcategory_id=subcategory.id)
+        db.session.add(entry)
         db.session.commit()
-        logger.info(f"Добавлена запись: '{entry_title}' в категорию '{category_name}/{subcategory_name}'")
-    else:
-        logger.warning('Попытка добавления записи без заголовка или ссылок')
+        logger.info(f"Создана новая запись: {entry_title}")
+
+    Url.query.filter_by(entry_id=entry.id).delete()
+    for url_str in urls:
+        if url_str:
+            db.session.add(Url(url=url_str, entry_id=entry.id))
+    db.session.commit()
+    flash(f"Запись '{entry_title}' успешно добавлена в '{category_name}/{subcategory_name}'", 'success')
     
     return redirect(url_for('catalog.index'))
 
@@ -95,8 +86,10 @@ def edit():
             if url_str:
                 db.session.add(Url(url=url_str, entry_id=entry_id))
         db.session.commit()
+        flash(f"Запись '{entry.title}' успешно обновлена.", 'success')
         logger.info(f"Отредактирована запись: '{entry.title}' (ID: {entry_id})")
     else:
+        flash("Ошибка: Запись для редактирования не найдена.", 'error')
         logger.warning(f"Запись с ID {entry_id} не найдена")
     
     return redirect(url_for('catalog.index'))
@@ -106,11 +99,13 @@ def delete_entry():
     entry_id = request.form.get('entry_id')
     entry = Entry.query.get(entry_id)
     if entry:
-        logger.info(f"Deleting entry: {entry.title} (ID: {entry_id})")
+        entry_name = entry.title
         db.session.delete(entry)
         db.session.commit()
-        logger.info(f"Entry {entry.title} deleted successfully")
+        flash(f"Запись '{entry_name}' успешно удалена.", 'success')
+        logger.info(f"Entry {entry_name} deleted successfully")
     else:
+        flash("Ошибка: Запись для удаления не найдена.", 'error')
         logger.warning(f"Entry with ID {entry_id} not found")
     
     return redirect(url_for('catalog.index'))
@@ -120,11 +115,13 @@ def delete_category():
     category_id = request.form.get('category_id')
     category = Category.query.get(category_id)
     if category:
-        logger.info(f"Deleting category: {category.name} (ID: {category_id})")
+        category_name = category.name
         db.session.delete(category)
         db.session.commit()
-        logger.info(f"Category {category.name} deleted successfully")
+        flash(f"Категория '{category_name}' и все ее содержимое удалены.", 'success')
+        logger.info(f"Category {category_name} deleted successfully")
     else:
+        flash("Ошибка: Категория для удаления не найдена.", 'error')
         logger.warning(f"Category with ID {category_id} not found")
     
     return redirect(url_for('catalog.index'))
@@ -134,11 +131,13 @@ def delete_subcategory():
     subcategory_id = request.form.get('subcategory_id')
     subcategory = Subcategory.query.get(subcategory_id)
     if subcategory:
-        logger.info(f"Deleting subcategory: {subcategory.name} (ID: {subcategory_id})")
+        subcategory_name = subcategory.name
         db.session.delete(subcategory)
         db.session.commit()
-        logger.info(f"Subcategory {subcategory.name} deleted successfully")
+        flash(f"Подкатегория '{subcategory_name}' и все ее содержимое удалены.", 'success')
+        logger.info(f"Subcategory {subcategory_name} deleted successfully")
     else:
+        flash("Ошибка: Подкатегория для удаления не найдена.", 'error')
         logger.warning(f"Subcategory with ID {subcategory_id} not found")
     
     return redirect(url_for('catalog.index'))
@@ -147,8 +146,10 @@ def delete_subcategory():
 def backup():
     try:
         create_backup()
+        flash("Резервная копия успешно создана!", 'success')
         logger.info("Backup created successfully by user.")
     except Exception as e:
+        flash(f"Ошибка при создании резервной копии: {e}", 'error')
         logger.error(f"Failed to create backup by user: {e}")
     return redirect(url_for('catalog.index'))
 
@@ -156,9 +157,15 @@ def backup():
 def restore(filename):
     backup_file_path = os.path.join(BACKUP_DIR, filename)
     if os.path.exists(backup_file_path):
-        restore_backup(backup_file_path)
-        logger.info(f"База данных восстановлена из файла: {filename}")
+        try:
+            restore_backup(backup_file_path)
+            flash(f"База данных успешно восстановлена из файла {filename}.", 'success')
+            logger.info(f"База данных восстановлена из файла: {filename}")
+        except Exception as e:
+            flash(f"Ошибка при восстановлении: {e}", 'error')
+            logger.error(f"Failed to restore backup: {e}")
     else:
+        flash(f"Файл бэкапа не найден: {filename}", 'error')
         logger.error(f"Файл бэкапа не найден: {filename}")
     return redirect(url_for('catalog.index'))
 
@@ -241,6 +248,7 @@ def edit_entry():
             if url_str:
                 db.session.add(Url(url=url_str, entry_id=entry_id))
         db.session.commit()
+        flash(f"Запись '{entry.title}' успешно обновлена.", 'success')
         logger.info(f"Запись {entry.title} (ID: {entry_id}) отредактирована")
         return jsonify({'status': 'success'})
     logger.warning(f"Запись с ID {entry_id} не найдена")
@@ -258,5 +266,6 @@ def export():
                     for url in entry.urls:
                         f.write(f"- {url.url}\n")
                     f.write("\n")
+    flash("Каталог успешно экспортирован в Markdown.", 'info')
     logger.info("Каталог экспортирован в Markdown")
     return send_file(MARKDOWN_FILE, as_attachment=True)
