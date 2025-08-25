@@ -22,3 +22,9 @@ catalog.md
 
 # Migration scripts
 migrate_data.py
+
+Anaconda (miniconda3).lnk
+
+# Ignored local directories
+/tests_manual/
+/!for_me/
