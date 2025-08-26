@@ -142,6 +142,34 @@ def delete_subcategory():
     
     return redirect(url_for('catalog.index'))
 
+@catalog_bp.route('/rename/category/<int:category_id>', methods=['POST'])
+def rename_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    new_name = request.form.get('new_name', '').strip()
+    if new_name:
+        old_name = category.name
+        category.name = new_name
+        db.session.commit()
+        flash(f'Категория "{old_name}" переименована в "{new_name}".', 'success')
+        logger.info(f'Category "{old_name}" (ID: {category_id}) renamed to "{new_name}"')
+    else:
+        flash('Новое имя не может быть пустым.', 'error')
+    return redirect(url_for('catalog.index'))
+
+@catalog_bp.route('/rename/subcategory/<int:subcategory_id>', methods=['POST'])
+def rename_subcategory(subcategory_id):
+    subcategory = Subcategory.query.get_or_404(subcategory_id)
+    new_name = request.form.get('new_name', '').strip()
+    if new_name:
+        old_name = subcategory.name
+        subcategory.name = new_name
+        db.session.commit()
+        flash(f'Подкатегория "{old_name}" переименована в "{new_name}".', 'success')
+        logger.info(f'Subcategory "{old_name}" (ID: {subcategory_id}) renamed to "{new_name}"')
+    else:
+        flash('Новое имя не может быть пустым.', 'error')
+    return redirect(url_for('catalog.index'))
+
 @catalog_bp.route('/backup', methods=['POST'])
 def backup():
     try:

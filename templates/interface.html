@@ -53,6 +53,17 @@
             background-color: #ccc;
             border: none;
         }
+
+        .rename-link {
+            margin-left: 10px;
+            font-size: 12px;
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .rename-link:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -212,9 +223,15 @@
                 <div class="left-subpanel">
                     <h3>Категории и подкатегории</h3>
                     {% for category in categories %}
-                        <p class="category" onclick="loadSubcategories('{{ category.name }}')">{{ category.name }}</p>
+                        <p class="category" onclick="loadSubcategories('{{ category.name }}')">
+                            {{ category.name }}
+                            <a href="#" onclick="event.stopPropagation(); showRenamePrompt('category', {{ category.id }}, '{{ category.name }}')" class="rename-link">[Переименовать]</a>
+                        </p>
                         {% for subcategory in category.subcategories %}
-                            <p class="indented subcategory" onclick="loadEntries('{{ category.name }}', '{{ subcategory.name }}')">{{ subcategory.name }}</p>
+                            <p class="indented subcategory" onclick="loadEntries('{{ category.name }}', '{{ subcategory.name }}')">
+                                {{ subcategory.name }}
+                                <a href="#" onclick="event.stopPropagation(); showRenamePrompt('subcategory', {{ subcategory.id }}, '{{ subcategory.name }}')" class="rename-link">[Переименовать]</a>
+                            </p>
                         {% endfor %}
                     {% endfor %}
                 </div>
@@ -269,6 +286,24 @@
             return false;
         }
         return showConfirmationModal(modalMessage, form);
+    }
+
+    function showRenamePrompt(type, id, oldName) {
+        const newName = prompt(`Введите новое имя для "${oldName}":`, oldName);
+        if (newName && newName.trim() !== '' && newName !== oldName) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/rename/${type}/${id}`;
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'new_name';
+            input.value = newName;
+            form.appendChild(input);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
