@@ -28,3 +28,7 @@ Anaconda (miniconda3).lnk
 # Ignored local directories
 /tests_manual/
 /!for_me/
+
+# Temp files
+templates/interface_copy_modal_wondows.html
+templates/interface_from_branch2.html
