@@ -5,6 +5,55 @@
     <title>Каталог</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <style>
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .modal-buttons {
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            cursor: pointer;
+            width: auto; /* Override full-width button style */
+        }
+
+        #confirmBtn {
+            background-color: #d9534f;
+            color: white;
+            border: none;
+        }
+
+        #cancelBtn {
+            background-color: #ccc;
+            border: none;
+        }
+    </style>
 </head>
 <body>
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -83,7 +132,7 @@
             <div id="delete" class="tab-content">
                 <h2>Удаление</h2>
                 <h3>Удалить категорию</h3>
-                <form action="{{ url_for('catalog.delete_category') }}" method="POST" onsubmit="return confirm('Вы уверены, что хотите удалить эту категорию?');">
+                <form action="{{ url_for('catalog.delete_category') }}" method="POST" onsubmit="return validateAndShowModal('delete_category_select_for_cat', 'Пожалуйста, выберите категорию для удаления.', 'Вы уверены, что хотите удалить эту категорию?', this);">
                     <p>Выберите категорию для удаления</p>
                     <select name="category_id" id="delete_category_select_for_cat">
                         <option value="">Выберите категорию</option>
@@ -95,7 +144,7 @@
                 </form>
 
                 <h3>Удалить подкатегорию</h3>
-                <form action="{{ url_for('catalog.delete_subcategory') }}" method="POST" onsubmit="return confirm('Вы уверены, что хотите удалить эту подкатегорию?');">
+                <form action="{{ url_for('catalog.delete_subcategory') }}" method="POST" onsubmit="return validateAndShowModal('delete_subcategory_select', 'Пожалуйста, выберите подкатегорию для удаления.', 'Вы уверены, что хотите удалить эту подкатегорию?', this);">
                     <p>Выберите категорию</p>
                     <select id="delete_category_select_for_sub" onchange="updateDeleteSubcategories()">
                         <option value="">Выберите категорию</option>
@@ -111,7 +160,7 @@
                 </form>
 
                 <h3>Удалить запись</h3>
-                <form action="{{ url_for('catalog.delete_entry') }}" method="POST" onsubmit="return confirm('Вы уверены, что хотите удалить эту запись?');">
+                <form action="{{ url_for('catalog.delete_entry') }}" method="POST" onsubmit="return validateAndShowModal('delete_entry_select', 'Пожалуйста, выберите запись для удаления.', 'Вы уверены, что хотите удалить эту запись?', this);">
                     <p>Выберите категорию</p>
                     <select name="category_select" id="delete_category_select" onchange="updateDeleteEntriesSubcategories()">
                         <option value="">Выберите категорию</option>
@@ -146,7 +195,7 @@
                     {% for backup in backup_files %}
                         <div class="backup-item">
                             <span>{{ backup }}</span>
-                            <form action="{{ url_for('catalog.restore', filename=backup) }}" method="POST" onsubmit="return confirm('Вы уверены, что хотите восстановить базу данных из этого файла? Текущие несохраненные изменения будут потеряны.');">
+                            <form action="{{ url_for('catalog.restore', filename=backup) }}" method="POST" onsubmit="return showConfirmationModal('Вы уверены, что хотите восстановить базу данных из этого файла? Текущие несохраненные изменения будут потеряны.', this);">
                                 <button type="submit">Восстановить</button>
                             </form>
                         </div>
@@ -187,5 +236,69 @@
             <a href="{{ url_for('catalog.export') }}">Экспортировать в Markdown</a>
         </div>
     </div>
+
+    <!-- Modal for confirmation -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <p id="modalMessage"></p>
+            <div class="modal-buttons">
+                <button id="confirmBtn">Да</button>
+                <button id="cancelBtn">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    let formToSubmit = null;
+
+    function showConfirmationModal(message, form) {
+        const modal = document.getElementById('confirmationModal');
+        const modalMessage = document.getElementById('modalMessage');
+        if (modal && modalMessage) {
+            modalMessage.textContent = message;
+            modal.style.display = 'flex';
+            formToSubmit = form;
+        }
+        return false; // Prevent default form submission
+    }
+
+    function validateAndShowModal(selectId, validationMessage, modalMessage, form) {
+        const selectElement = document.getElementById(selectId);
+        if (!selectElement || selectElement.value === '') {
+            alert(validationMessage);
+            return false;
+        }
+        return showConfirmationModal(modalMessage, form);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('confirmationModal');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        if (modal && confirmBtn && cancelBtn) {
+            cancelBtn.onclick = function() {
+                modal.style.display = 'none';
+                formToSubmit = null;
+            }
+
+            confirmBtn.onclick = function() {
+                if (formToSubmit) {
+                    formToSubmit.submit();
+                }
+                modal.style.display = 'none';
+                formToSubmit = null;
+            }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                    formToSubmit = null;
+                }
+            }
+        }
+    });
+</script>
+
 </body>
 </html>
