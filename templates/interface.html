@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Каталог</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <style>
         /* Modal styles */
         .modal {
@@ -86,6 +85,7 @@
             100% { transform: rotate(360deg); }
         }
     </style>
+    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </head>
 <body>
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -101,14 +101,14 @@
     <div class="container">
         <div class="left-panel">
             <div class="tabs">
-                <button class="tab-button active" onclick="openTab('add')">Добавление</button>
-                <button class="tab-button" onclick="openTab('edit')">Редактирование</button>
-                <button class="tab-button" onclick="openTab('delete')">Удаление</button>
-                <button class="tab-button" onclick="openTab('backup')">Резервное копирование</button>
-                <button class="tab-button" onclick="openTab('restore')">Восстановление</button>
+                <button class="tab-button" data-tab="add">Добавление</button>
+                <button class="tab-button" data-tab="edit">Редактирование</button>
+                <button class="tab-button" data-tab="delete">Удаление</button>
+                <button class="tab-button" data-tab="backup">Резервное копирование</button>
+                <button class="tab-button" data-tab="restore">Восстановление</button>
             </div>
 
-            <div id="add" class="tab-content" style="display: block;">
+            <div id="add" class="tab-content">
                 <h2>Добавление</h2>
                 <form action="{{ url_for('catalog.add') }}" method="POST">
                     <p>Выберите категорию</p>
@@ -138,18 +138,18 @@
                 <h2>Редактирование</h2>
                 <form id="edit_form" action="{{ url_for('catalog.edit') }}" method="POST">
                     <p>Выберите категорию</p>
-                    <select name="category_select" id="edit_category_select" onchange="updateEditSubcategories()">
+                    <select name="category_select" id="edit_category_select">
                         <option value="">Выберите категорию</option>
                         {% for category in categories %}
                             <option value="{{ category.name }}">{{ category.name }}</option>
                         {% endfor %}
                     </select>
                     <p>Выберите подкатегорию</p>
-                    <select name="subcategory_select" id="edit_subcategory_select" onchange="updateEditEntries()">
+                    <select name="subcategory_select" id="edit_subcategory_select">
                         <option value="">Выберите подкатегорию</option>
                     </select>
                     <p>Выберите запись</p>
-                    <select name="entry_select" id="edit_entry_select" onchange="loadEntryDetails()">
+                    <select name="entry_select" id="edit_entry_select">
                         <option value="">Выберите запись</option>
                     </select>
                     <p>Новое название</p>
@@ -164,7 +164,7 @@
             <div id="delete" class="tab-content">
                 <h2>Удаление</h2>
                 <h3>Удалить категорию</h3>
-                <form action="{{ url_for('catalog.delete_category') }}" method="POST" onsubmit="return validateAndShowModal('delete_category_select_for_cat', 'Пожалуйста, выберите категорию для удаления.', 'Вы уверены, что хотите удалить эту категорию?', this);">
+                <form id="deleteCatForm" action="{{ url_for('catalog.delete_category') }}" method="POST">
                     <p>Выберите категорию для удаления</p>
                     <select name="category_id" id="delete_category_select_for_cat">
                         <option value="">Выберите категорию</option>
@@ -176,9 +176,9 @@
                 </form>
 
                 <h3>Удалить подкатегорию</h3>
-                <form action="{{ url_for('catalog.delete_subcategory') }}" method="POST" onsubmit="return validateAndShowModal('delete_subcategory_select', 'Пожалуйста, выберите подкатегорию для удаления.', 'Вы уверены, что хотите удалить эту подкатегорию?', this);">
+                <form id="deleteSubcatForm" action="{{ url_for('catalog.delete_subcategory') }}" method="POST">
                     <p>Выберите категорию</p>
-                    <select id="delete_category_select_for_sub" onchange="updateDeleteSubcategories()">
+                    <select id="delete_category_select_for_sub">
                         <option value="">Выберите категорию</option>
                         {% for category in categories %}
                             <option value="{{ category.id }}">{{ category.name }}</option>
@@ -192,16 +192,16 @@
                 </form>
 
                 <h3>Удалить запись</h3>
-                <form action="{{ url_for('catalog.delete_entry') }}" method="POST" onsubmit="return validateAndShowModal('delete_entry_select', 'Пожалуйста, выберите запись для удаления.', 'Вы уверены, что хотите удалить эту запись?', this);">
+                <form id="deleteEntryForm" action="{{ url_for('catalog.delete_entry') }}" method="POST">
                     <p>Выберите категорию</p>
-                    <select name="category_select" id="delete_category_select" onchange="updateDeleteEntriesSubcategories()">
+                    <select name="category_select" id="delete_category_select">
                         <option value="">Выберите категорию</option>
                         {% for category in categories %}
                             <option value="{{ category.name }}">{{ category.name }}</option>
                         {% endfor %}
                     </select>
                     <p>Выберите подкатегорию</p>
-                    <select name="subcategory_select" id="delete_subcategory_select_for_entry" onchange="updateDeleteEntries()">
+                    <select name="subcategory_select" id="delete_subcategory_select_for_entry">
                         <option value="">Выберите подкатегорию</option>
                     </select>
                     <p>Выберите запись</p>
@@ -227,7 +227,7 @@
                     {% for backup in backup_files %}
                         <div class="backup-item">
                             <span>{{ backup }}</span>
-                            <form action="{{ url_for('catalog.restore', filename=backup) }}" method="POST" onsubmit="return showConfirmationModal('Вы уверены, что хотите восстановить базу данных из этого файла? Текущие несохраненные изменения будут потеряны.', this);">
+                            <form class="restore-form" action="{{ url_for('catalog.restore', filename=backup) }}" method="POST">
                                 <button type="submit">Восстановить</button>
                             </form>
                         </div>
@@ -244,14 +244,14 @@
                 <div class="left-subpanel">
                     <h3>Категории и подкатегории</h3>
                     {% for category in categories %}
-                        <p class="category" onclick="loadSubcategories('{{ category.name }}')">
+                        <p class="category" data-name="{{ category.name }}">
                             {{ category.name }}
-                            <a href="#" onclick="event.stopPropagation(); showRenamePrompt('category', {{ category.id }}, '{{ category.name }}')" class="rename-link">[Переименовать]</a>
+                            <a href="#" class="rename-link" data-type="category" data-id="{{ category.id }}" data-name="{{ category.name }}">[Переименовать]</a>
                         </p>
                         {% for subcategory in category.subcategories %}
-                            <p class="indented subcategory" onclick="loadEntries('{{ category.name }}', '{{ subcategory.name }}')">
+                            <p class="indented subcategory" data-category="{{ category.name }}" data-name="{{ subcategory.name }}">
                                 {{ subcategory.name }}
-                                <a href="#" onclick="event.stopPropagation(); showRenamePrompt('subcategory', {{ subcategory.id }}, '{{ subcategory.name }}')" class="rename-link">[Переименовать]</a>
+                                <a href="#" class="rename-link" data-type="subcategory" data-id="{{ subcategory.id }}" data-name="{{ subcategory.name }}">[Переименовать]</a>
                             </p>
                         {% endfor %}
                     {% endfor %}
@@ -266,8 +266,8 @@
                         <input type="text" id="edit_entry_title_form" placeholder="Новое название записи">
                         <textarea id="edit_urls_form" placeholder="Новые ссылки (одна на строку)"></textarea>
                         <input type="hidden" id="edit_entry_id_form">
-                        <button onclick="saveEntryEdit()">Сохранить</button>
-                        <button onclick="cancelEdit()">Отмена</button>
+                        <button type="button" id="saveEntryBtn">Сохранить</button>
+                        <button type="button" id="cancelEditBtn">Отмена</button>
                     </div>
                 </div>
             </div>
@@ -288,360 +288,6 @@
 
     <!-- Spinner -->
     <div id="spinner" class="spinner" style="display: none;"></div>
-
-<script>
-    let formToSubmit = null;
-
-    function showConfirmationModal(message, form) {
-        const modal = document.getElementById('confirmationModal');
-        const modalMessage = document.getElementById('modalMessage');
-        if (modal && modalMessage) {
-            modalMessage.textContent = message;
-            modal.style.display = 'flex';
-            formToSubmit = form;
-        }
-        return false; // Prevent default form submission
-    }
-
-    function validateAndShowModal(selectId, validationMessage, modalMessage, form) {
-        const selectElement = document.getElementById(selectId);
-        if (!selectElement || selectElement.value === '') {
-            alert(validationMessage);
-            return false;
-        }
-        return showConfirmationModal(modalMessage, form);
-    }
-
-    function showRenamePrompt(type, id, oldName) {
-        const newName = prompt(`Введите новое имя для "${oldName}":`, oldName);
-        if (newName && newName.trim() !== '' && newName !== oldName) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/rename/${type}/${id}`;
-
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'new_name';
-            input.value = newName;
-            form.appendChild(input);
-
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
-
-    function updateAddSubcategories() {
-        document.getElementById('spinner').style.display = 'block';
-        var categoryName = document.getElementById('add_category_select').value;
-        var newCategoryInput = document.getElementById('new_category_input');
-        var subcategorySelect = document.getElementById('add_subcategory_select');
-        var newSubcategoryInput = document.getElementById('new_subcategory_input');
-
-        if (categoryName === '__new__') {
-            newCategoryInput.style.display = 'block';
-            subcategorySelect.innerHTML = '<option value="">Выберите подкатегорию</option><option value="__new__">+ Добавить новую</option>';
-            newSubcategoryInput.style.display = 'block';
-            document.getElementById('spinner').style.display = 'none';
-        } else if (categoryName) {
-            newCategoryInput.style.display = 'none';
-            fetch(`/get_subcategories?category=${encodeURIComponent(categoryName)}`)
-                .then(response => response.json())
-                .then(subcategories => {
-                    subcategorySelect.innerHTML = '<option value="">Выберите подкатегорию</option>';
-                    subcategories.forEach(sub => {
-                        var option = document.createElement('option');
-                        option.value = sub.name;
-                        option.textContent = sub.name;
-                        subcategorySelect.appendChild(option);
-                    });
-                    subcategorySelect.innerHTML += '<option value="__new__">+ Добавить новую</option>';
-                })
-                .catch(error => console.error('Ошибка загрузки подкатегорий:', error))
-                .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-        } else {
-            newCategoryInput.style.display = 'none';
-            subcategorySelect.innerHTML = '<option value="">Выберите подкатегорию</option>';
-            newSubcategoryInput.style.display = 'none';
-            document.getElementById('spinner').style.display = 'none';
-        }
-        newSubcategoryInput.style.display = subcategorySelect.value === '__new__' ? 'block' : 'none';
-    }
-
-    function updateEditSubcategories() {
-        document.getElementById('spinner').style.display = 'block';
-        var categoryName = document.getElementById('edit_category_select').value;
-        var subcategorySelect = document.getElementById('edit_subcategory_select');
-        if (categoryName) {
-            fetch(`/get_subcategories?category=${encodeURIComponent(categoryName)}`)
-                .then(response => response.json())
-                .then(subcategories => {
-                    subcategorySelect.innerHTML = '<option value="">Выберите подкатегорию</option>';
-                    subcategories.forEach(sub => {
-                        var option = document.createElement('option');
-                        option.value = sub.name;
-                        option.textContent = sub.name;
-                        subcategorySelect.appendChild(option);
-                    });
-                })
-                .catch(error => console.error('Ошибка загрузки подкатегорий:', error))
-                .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-        } else {
-            subcategorySelect.innerHTML = '<option value="">Выберите подкатегорию</option>';
-            document.getElementById('spinner').style.display = 'none';
-        }
-    }
-
-    function updateEditEntries() {
-        document.getElementById('spinner').style.display = 'block';
-        var categoryName = document.getElementById('edit_category_select').value;
-        var subcategoryName = document.getElementById('edit_subcategory_select').value;
-        if (categoryName && subcategoryName) {
-            fetch(`/get_entries?category=${encodeURIComponent(categoryName)}&subcategory=${encodeURIComponent(subcategoryName)}`)
-                .then(response => response.json())
-                .then(entries => {
-                    var select = document.getElementById('edit_entry_select');
-                    select.innerHTML = '<option value="">Выберите запись</option>';
-                    entries.forEach(entry => {
-                        var option = document.createElement('option');
-                        option.value = entry.id;
-                        option.textContent = entry.title;
-                        select.appendChild(option);
-                    });
-                })
-                .catch(error => console.error('Ошибка загрузки записей:', error))
-                .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-        } else {
-            document.getElementById('spinner').style.display = 'none';
-        }
-    }
-
-    function loadEntryDetails() {
-        document.getElementById('spinner').style.display = 'block';
-        var categoryName = document.getElementById('edit_category_select').value;
-        var subcategoryName = document.getElementById('edit_subcategory_select').value;
-        var entryId = document.getElementById('edit_entry_select').value;
-        if (categoryName && subcategoryName && entryId) {
-            fetch(`/get_entry_details?category=${encodeURIComponent(categoryName)}&subcategory=${encodeURIComponent(subcategoryName)}`)
-                .then(response => response.json())
-                .then(entries => {
-                    var entry = entries.find(e => e.id == entryId);
-                    if (entry) {
-                        document.getElementById('edit_entry_id').value = entry.id;
-                        document.getElementById('edit_entry_title').value = entry.title;
-                        document.getElementById('edit_urls').value = entry.urls.join('\n');
-                    }
-                })
-                .catch(error => console.error('Ошибка загрузки деталей записи:', error))
-                .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-        } else {
-            document.getElementById('spinner').style.display = 'none';
-        }
-    }
-
-    function updateDeleteSubcategories() {
-        document.getElementById('spinner').style.display = 'block';
-        var categoryId = document.getElementById('delete_category_select_for_sub').value;
-        fetch(`/get_subcategories?category_id=${categoryId}`)
-            .then(response => {
-                if (!response.ok) throw new Error('Сетевая ошибка: ' + response.status);
-                return response.json();
-            })
-            .then(subcategories => {
-                var select = document.getElementById('delete_subcategory_select');
-                select.innerHTML = '<option value="">Выберите подкатегорию</option>';
-                subcategories.forEach(sub => {
-                    var option = document.createElement('option');
-                    option.value = sub.id;
-                    option.textContent = sub.name;
-                    select.appendChild(option);
-                });
-            })
-            .catch(error => console.error('Ошибка загрузки подкатегорий:', error))
-            .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-    }
-
-    function updateDeleteEntriesSubcategories() {
-        document.getElementById('spinner').style.display = 'block';
-        var categoryName = document.getElementById('delete_category_select').value;
-        if (categoryName) {
-            fetch(`/get_subcategories?category=${encodeURIComponent(categoryName)}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Сетевая ошибка: ' + response.status);
-                    return response.json();
-                })
-                .then(subcategories => {
-                    var select = document.getElementById('delete_subcategory_select_for_entry');
-                    select.innerHTML = '<option value="">Выберите подкатегорию</option>';
-                    subcategories.forEach(sub => {
-                        var option = document.createElement('option');
-                        option.value = sub.name;
-                        option.textContent = sub.name;
-                        select.appendChild(option);
-                    });
-                })
-                .catch(error => console.error('Ошибка загрузки подкатегорий для удаления записи:', error))
-                .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-        } else {
-            document.getElementById('spinner').style.display = 'none';
-        }
-    }
-
-    function updateDeleteEntries() {
-        document.getElementById('spinner').style.display = 'block';
-        var categoryName = document.getElementById('delete_category_select').value;
-        var subcategoryName = document.getElementById('delete_subcategory_select_for_entry').value;
-        if (categoryName && subcategoryName) {
-            fetch(`/get_entries?category=${encodeURIComponent(categoryName)}&subcategory=${encodeURIComponent(subcategoryName)}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Сетевая ошибка: ' + response.status);
-                    return response.json();
-                })
-                .then(entries => {
-                    var select = document.getElementById('delete_entry_select');
-                    select.innerHTML = '<option value="">Выберите запись</option>';
-                    entries.forEach(entry => {
-                        var option = document.createElement('option');
-                        option.value = entry.id;
-                        option.textContent = entry.title;
-                        select.appendChild(option);
-                    });
-                })
-                .catch(error => console.error('Ошибка загрузки записей:', error))
-                .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-        } else {
-            document.getElementById('spinner').style.display = 'none';
-        }
-    }
-
-    function loadSubcategories(categoryName) {
-        document.getElementById('spinner').style.display = 'block';
-        // Снимаем выделение со всех категорий
-        document.querySelectorAll('.category').forEach(el => el.classList.remove('selected'));
-        // Добавляем выделение выбранной категории
-        event.target.classList.add('selected');
-        
-        fetch(`/get_subcategories?category=${encodeURIComponent(categoryName)}`)
-            .then(response => response.json())
-            .then(subcategories => {
-                console.log('Подкатегории:', subcategories);
-                // Снимаем выделение со всех подкатегорий
-                document.querySelectorAll('.subcategory').forEach(el => el.classList.remove('selected'));
-            })
-            .catch(error => console.error('Ошибка загрузки подкатегорий:', error))
-            .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-    }
-
-    function loadEntries(categoryName, subcategoryName) {
-        document.getElementById('spinner').style.display = 'block';
-        // Снимаем выделение со всех подкатегорий
-        document.querySelectorAll('.subcategory').forEach(el => el.classList.remove('selected'));
-        // Добавляем выделение выбранной подкатегории
-        var subcategories = document.querySelectorAll('.subcategory');
-        subcategories.forEach(sub => {
-            if (sub.textContent.trim() === subcategoryName) { // .trim() to be safe
-                sub.classList.add('selected');
-            }
-        });
-        
-        fetch(`/get_entry_details?category=${encodeURIComponent(categoryName)}&subcategory=${encodeURIComponent(subcategoryName)}`)
-            .then(response => {
-                if (!response.ok) throw new Error('Сетевая ошибка: ' + response.status);
-                return response.json();
-            })
-            .then(entries => {
-                console.log('Полученные записи:', entries);
-                var entryList = document.getElementById('entry_list');
-                entryList.innerHTML = '';
-                if (entries.length === 0) {
-                    entryList.innerHTML = '<li>Нет записей в этой подкатегории</li>';
-                } else {
-                    entries.forEach(entry => {
-                        var li = document.createElement('li');
-                        li.innerHTML = `<strong>${entry.title}</strong> <a href="#" onclick="showEditForm(${entry.id}, '${entry.title.replace(/'/g, "\'")}', '${entry.urls.join('\n').replace(/'/g, "\'")}')">Редактировать</a>`;
-                        li.setAttribute('data-entry-id', entry.id);
-                        if (entry.urls && entry.urls.length > 0) {
-                            var ul = document.createElement('ul');
-                            entry.urls.forEach(url => {
-                                var urlLi = document.createElement('li');
-                                urlLi.innerHTML = `<a href="${url}" target="_blank">${url}</a>`;
-                                ul.appendChild(urlLi);
-                            });
-                            li.appendChild(ul);
-                        }
-                        entryList.appendChild(li);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Ошибка загрузки записей:', error);
-                document.getElementById('entry_list').innerHTML = '<li>Ошибка загрузки записей</li>';
-            })
-            .finally(() => {
-                document.getElementById('spinner').style.display = 'none';
-            });
-    }
-
-    function saveEntryEdit() {
-        document.getElementById('spinner').style.display = 'block';
-        var entryId = document.getElementById('edit_entry_id_form').value;
-        var newTitle = document.getElementById('edit_entry_title_form').value;
-        var newUrls = document.getElementById('edit_urls_form').value.split('\n').filter(url => url.trim());
-        fetch('/edit_entry', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entry_id: entryId, new_title: newTitle, new_urls: newUrls })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('edit_entry_form').style.display = 'none';
-                    var activeCategory = document.querySelector('.category.selected');
-                    var activeSubcategory = document.querySelector('.subcategory.selected');
-                    if (activeCategory && activeSubcategory) {
-                        loadEntries(activeCategory.textContent, activeSubcategory.textContent).then(() => {
-                            var editedLi = document.querySelector(`li[data-entry-id="${entryId}"]`);
-                            if (editedLi) {
-                                editedLi.scrollIntoView({behavior: 'smooth', block: 'center'});
-                                editedLi.classList.add('selected');
-                            }
-                        });
-                    } else {
-                        location.reload();
-                    }
-                }
-            })
-            .catch(error => console.error('Ошибка сохранения записи:', error))
-            .finally(() => { document.getElementById('spinner').style.display = 'none'; });
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const modal = document.getElementById('confirmationModal');
-        const confirmBtn = document.getElementById('confirmBtn');
-        const cancelBtn = document.getElementById('cancelBtn');
-
-        if (modal && confirmBtn && cancelBtn) {
-            cancelBtn.onclick = function() {
-                modal.style.display = 'none';
-                formToSubmit = null;
-            }
-
-            confirmBtn.onclick = function() {
-                if (formToSubmit) {
-                    formToSubmit.submit();
-                }
-                modal.style.display = 'none';
-                formToSubmit = null;
-            }
-
-            window.onclick = function(event) {
-                if (event.target == modal) {
-                    modal.style.display = 'none';
-                    formToSubmit = null;
-                }
-            }
-        }
-    });
-</script>
 
 </body>
 </html>
