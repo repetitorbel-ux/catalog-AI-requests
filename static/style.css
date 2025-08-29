@@ -283,3 +283,12 @@ button:hover {
     padding: 6px 12px;
     margin-right: 10px;
 }
+
+/* Specific style for the edit entry link */
+.right-subpanel a.edit-entry-link {
+    color: #28a745; /* Green */
+}
+
+.right-subpanel a.edit-entry-link:hover {
+    color: #218838; /* Darker Green */
+}

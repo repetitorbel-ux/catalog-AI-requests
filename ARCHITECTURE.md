@@ -16,9 +16,9 @@
 - **Важно:** Для тестов создается отдельный экземпляр приложения с тестовой конфигурацией.
 
 ### `config.py`
-- **Содержит:** `SECRET_KEY`, `SQLALCHEMY_DATABASE_URI`
-- **Важно:** Для подключения к БД используется строка из переменной окружения `DATABASE_URL`. Конфиг адаптирован для serverless-БД (пулы соединений, `SQLALCHEMY_POOL_RECYCLE`, `SQLALCHEMY_POOL_PRE_PING`).
-- **Пути:** `BACKUP_DIR` для бэкапов, `MARKDOWN_FILE` для экспорта.
+- **Содержит:** `SECRET_KEY`, `SQLALCHEMY_DATABASE_URI` и другие пути.
+- **Загрузка конфигурации:** В самом начале файла используется библиотека `python-dotenv` для загрузки переменных из файла `.env`. Это позволяет безопасно хранить секреты (`SECRET_KEY`, `DATABASE_URL`) вне системы контроля версий.
+- **Важно:** Для подключения к БД используется переменная окружения `DATABASE_URL`. Конфиг адаптирован для serverless-БД (пулы соединений, `SQLALCHEMY_POOL_RECYCLE`, `SQLALCHEMY_POOL_PRE_PING`).
 
 ### `models.py`
 - **Сущности:** `Category` -> `Subcategory` -> `Entry` -> `Url`
