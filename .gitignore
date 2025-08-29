@@ -32,3 +32,6 @@ Anaconda (miniconda3).lnk
 # Temp files
 templates/interface_copy_modal_wondows.html
 templates/interface_from_branch2.html
+
+# Environment variables
+.env
