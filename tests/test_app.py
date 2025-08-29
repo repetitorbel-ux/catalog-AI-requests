@@ -60,3 +60,40 @@ def test_add_entry(client, app):
         entry = Entry.query.filter_by(title='Тестовая Запись').first()
         assert entry is not None
         assert entry.subcategory_id == subcategory.id
+
+def test_add_entry_ajax(client, app):
+    """Тест на добавление записи через AJAX."""
+    response = client.post('/add', data={
+        'category_select': '__new__',
+        'new_category': 'AJAX Категория',
+        'subcategory_select': '__new__',
+        'new_subcategory': 'AJAX Подкатегория',
+        'entry_title': 'AJAX Запись',
+        'urls': 'http://example.com/ajax'
+    })
+
+    # 1. Проверяем, что ответ успешный и в формате JSON
+    assert response.status_code == 200
+    assert response.content_type == 'application/json'
+
+    # 2. Проверяем содержимое JSON-ответа
+    json_data = response.get_json()
+    assert json_data['status'] == 'success'
+    assert 'data' in json_data
+    assert 'category_id' in json_data['data']
+    assert 'subcategory_id' in json_data['data']
+    assert 'entry_id' in json_data['data']
+
+    # 3. Проверяем, что данные действительно были добавлены в БД
+    with app.app_context():
+        category = Category.query.filter_by(name='AJAX Категория').first()
+        assert category is not None
+        assert category.id == json_data['data']['category_id']
+
+        subcategory = Subcategory.query.filter_by(name='AJAX Подкатегория').first()
+        assert subcategory is not None
+        assert subcategory.id == json_data['data']['subcategory_id']
+
+        entry = Entry.query.filter_by(title='AJAX Запись').first()
+        assert entry is not None
+        assert entry.id == json_data['data']['entry_id']

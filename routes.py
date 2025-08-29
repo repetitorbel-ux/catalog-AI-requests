@@ -23,54 +23,87 @@ def index():
 
 @catalog_bp.route('/add', methods=['POST'])
 def add():
-    data = request.form
-    category_name = data.get('category_select')
-    new_category = data.get('new_category', '').strip()
-    subcategory_name = data.get('subcategory_select')
-    new_subcategory = data.get('new_subcategory', '').strip()
+    try:
+        data = request.form
+        category_name = data.get('category_select')
+        new_category_name = data.get('new_category', '').strip()
+        subcategory_name = data.get('subcategory_select')
+        new_subcategory_name = data.get('new_subcategory', '').strip()
 
-    if category_name == '__new__' and new_category:
-        category_name = new_category
-    if subcategory_name == '__new__' and new_subcategory:
-        subcategory_name = new_subcategory
+        is_new = {'category': False, 'subcategory': False}
 
-    entry_title = data.get('entry_title')
-    urls_str = data.get('urls', '')
-    urls = [url.strip() for url in urls_str.split('\n') if url.strip()] if urls_str else []
+        if category_name == '__new__':
+            if not new_category_name:
+                return jsonify({'status': 'error', 'message': 'Название новой категории не может быть пустым.'}), 400
+            category_name = new_category_name
+            is_new['category'] = True
+        
+        if subcategory_name == '__new__':
+            if not new_subcategory_name:
+                return jsonify({'status': 'error', 'message': 'Название новой подкатегории не может быть пустым.'}), 400
+            subcategory_name = new_subcategory_name
+            is_new['subcategory'] = True
 
-    if not category_name or not subcategory_name or not entry_title or not urls:
-        flash('Все поля, кроме выбора существующих, должны быть заполнены для добавления записи.', 'error')
-        return redirect(url_for('catalog.index'))
+        entry_title = data.get('entry_title')
+        urls_str = data.get('urls', '')
+        urls = [url.strip() for url in urls_str.split('\n') if url.strip()]
 
-    category = Category.query.filter_by(name=category_name).first()
-    if not category:
-        category = Category(name=category_name)
-        db.session.add(category)
-        db.session.commit()
-        logger.info(f"Создана новая категория: {category_name}")
+        if not all([category_name, subcategory_name, entry_title, urls]):
+            return jsonify({'status': 'error', 'message': 'Все поля должны быть заполнены.'}), 400
 
-    subcategory = Subcategory.query.filter_by(name=subcategory_name, category_id=category.id).first()
-    if not subcategory:
-        subcategory = Subcategory(name=subcategory_name, category_id=category.id)
-        db.session.add(subcategory)
-        db.session.commit()
-        logger.info(f"Создана новая подкатегория: {subcategory_name}")
+        category = Category.query.filter_by(name=category_name).first()
+        if not category:
+            category = Category(name=category_name)
+            db.session.add(category)
+            db.session.flush()  # Flush to get category.id before commit
+            is_new['category'] = True
+            logger.info(f"Создана новая категория: {category_name}")
 
-    entry = Entry.query.filter_by(title=entry_title, subcategory_id=subcategory.id).first()
-    if not entry:
-        entry = Entry(title=entry_title, subcategory_id=subcategory.id)
-        db.session.add(entry)
-        db.session.commit()
-        logger.info(f"Создана новая запись: {entry_title}")
+        subcategory = Subcategory.query.filter_by(name=subcategory_name, category_id=category.id).first()
+        if not subcategory:
+            subcategory = Subcategory(name=subcategory_name, category_id=category.id)
+            db.session.add(subcategory)
+            db.session.flush()  # Flush to get subcategory.id
+            is_new['subcategory'] = True
+            logger.info(f"Создана новая подкатегория: {subcategory_name}")
 
-    Url.query.filter_by(entry_id=entry.id).delete()
-    for url_str in urls:
-        if url_str:
+        # For simplicity, we overwrite existing entries if the title matches.
+        # A more robust implementation might prevent this or handle it differently.
+        entry = Entry.query.filter_by(title=entry_title, subcategory_id=subcategory.id).first()
+        if not entry:
+            entry = Entry(title=entry_title, subcategory_id=subcategory.id)
+            db.session.add(entry)
+        else:
+            # If entry exists, clear its old URLs
+            Url.query.filter_by(entry_id=entry.id).delete()
+        
+        db.session.flush() # Flush to get entry.id
+
+        for url_str in urls:
             db.session.add(Url(url=url_str, entry_id=entry.id))
-    db.session.commit()
-    flash(f"Запись '{entry_title}' успешно добавлена в '{category_name}/{subcategory_name}'", 'success')
-    
-    return redirect(url_for('catalog.index'))
+        
+        db.session.commit()
+        logger.info(f"Запись '{entry_title}' успешно добавлена/обновлена.")
+
+        return jsonify({
+            'status': 'success',
+            'message': f"Запись '{entry_title}' успешно добавлена в '{category.name}/{subcategory.name}'",
+            'data': {
+                'category_id': category.id,
+                'category_name': category.name,
+                'subcategory_id': subcategory.id,
+                'subcategory_name': subcategory.name,
+                'entry_id': entry.id,
+                'entry_title': entry.title,
+                'is_new': is_new
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Ошибка при добавлении записи: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': f'Внутренняя ошибка сервера: {e}'}), 500
+
 
 @catalog_bp.route('/edit', methods=['POST'])
 def edit():

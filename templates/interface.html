@@ -80,6 +80,11 @@
             z-index: 2000;
         }
 
+        .newly-added {
+            background-color: #e8f5e9; /* Light green */
+            transition: background-color 2s;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -110,7 +115,7 @@
 
             <div id="add" class="tab-content">
                 <h2>Добавление</h2>
-                <form action="{{ url_for('catalog.add') }}" method="POST">
+                <form id="add-form">
                     <p>Выберите категорию</p>
                     <select name="category_select" id="add_category_select">
                         <option value="">Выберите категорию</option>
