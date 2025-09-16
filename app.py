@@ -3,7 +3,7 @@ import logging
 from flask import Flask
 from extensions import db
 
-def create_app(config_overrides=None):
+def create_app(config_overrides=None, skip_db_create_all=False):
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
     # Загрузка базовой конфигурации из файла config.py
@@ -30,14 +30,34 @@ def create_app(config_overrides=None):
     # Инициализация базы данных
     db.init_app(app)
 
+    # Установка search_path для Neon DB через событие SQLAlchemy.
+    # Это решает проблему "unsupported startup parameter" при работе с пулером.
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    @event.listens_for(Engine, "connect")
+    def set_search_path(dbapi_connection, connection_record):
+        # Используем прокси-объект `db` для доступа к текущему движку
+        if db.engine.dialect.name == 'postgresql':
+            cursor = dbapi_connection.cursor()
+            cursor.execute("SET search_path TO public")
+            cursor.close()
+
     # Импорт и регистрация Blueprint
     from routes import catalog_bp
     app.register_blueprint(catalog_bp)
 
-    # Импорт моделей и создание таблиц в контексте приложения
-    with app.app_context():
-        from models import Category, Subcategory, Entry, Url
+    if not skip_db_create_all:
+        # Импорт моделей. Создание таблиц вынесено в CLI команду.
+        with app.app_context():
+            from models import Category, Subcategory, Entry, Url
+
+    # --- CLI Commands ---
+    @app.cli.command("init-db")
+    def init_db_command():
+        """Creates the database tables."""
         db.create_all()
+        print("Initialized the database.")
 
     return app
 
