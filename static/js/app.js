@@ -10,6 +10,7 @@ class CatalogApp {
             this.setupFormEventListeners();
             this.setupModalEventListeners();
             this.setupCatalogEventListeners();
+            this.setupUrlEditingEventListeners();
         });
     }
 
@@ -370,7 +371,15 @@ class CatalogApp {
                     if (entry) {
                         document.getElementById('edit_entry_id').value = entry.id;
                         document.getElementById('edit_entry_title').value = entry.title;
-                        document.getElementById('edit_urls').value = entry.urls.join('\n');
+                        // Преобразуем массив объектов в две строки
+                        const urlsText = entry.urls.map(u => u.url).join('\n');
+                        const descriptionsText = entry.urls.map(u => u.description || '').join('\n');
+                        document.getElementById('edit_urls').value = urlsText;
+                        // Предполагаем, что у нас будет поле edit_url_descriptions
+                        const descriptionsField = document.getElementById('edit_url_descriptions');
+                        if (descriptionsField) {
+                            descriptionsField.value = descriptionsText;
+                        }
                     }
                 })
                 .catch(error => this.showFlashMessage(`Ошибка загрузки деталей записи: ${error.message}`, 'error'))
@@ -522,13 +531,21 @@ class CatalogApp {
                 } else {
                     entries.forEach(entry => {
                         const li = document.createElement('li');
-                        li.innerHTML = `<strong>${entry.title}</strong> <a href="#" class="edit-entry-link" data-id="${entry.id}" data-title="${entry.title.replace(/'/g, "'")}" data-urls="${entry.urls.join('\n').replace(/'/g, "'")}">[Редактировать]</a>`;
+                        const urlsText = entry.urls.map(u => u.url).join('\n');
+                        li.innerHTML = `<strong>${entry.title}</strong> <a href="#" class="edit-entry-link" data-id="${entry.id}" data-title="${entry.title.replace(/'/g, "'")}" data-urls="${urlsText.replace(/'/g, "'")}">[Редактировать]</a>`;
                         li.setAttribute('data-entry-id', entry.id);
                         if (entry.urls && entry.urls.length > 0) {
                             const ul = document.createElement('ul');
-                            entry.urls.forEach(url => {
+                            entry.urls.forEach(urlData => {
                                 const urlLi = document.createElement('li');
-                                urlLi.innerHTML = `<a href="${url}" target="_blank">${url}</a>`;
+                                urlLi.dataset.urlId = urlData.id;
+                                urlLi.innerHTML = `
+                                    <div class="url-display">
+                                        <a href="${urlData.url}" target="_blank">${urlData.url}</a>
+                                        <a href="#" class="edit-url-link" data-id="${urlData.id}">[Ред.]</a>
+                                    </div>
+                                    <div class="url-description">${urlData.description || ''}</div>
+                                `;
                                 ul.appendChild(urlLi);
                             });
                             li.appendChild(ul);
@@ -598,79 +615,9 @@ class CatalogApp {
             .finally(() => this.toggleSpinner(false));
     }
 
-    loadSubcategories(categoryName) {
-        this.toggleSpinner(true);
-        document.querySelectorAll('.category').forEach(el => el.classList.remove('selected'));
-        document.querySelector(`p[data-name='${categoryName}']`).classList.add('selected');
-        
-        fetch(`/get_subcategories?category=${encodeURIComponent(categoryName)}`)
-            .then(response => response.json())
-            .then(subcategories => {
-                // This function only loads subcategories in the main view, which is now handled by page reload/redirect.
-                // We can leave this as is or refactor to dynamically update the list.
-                // For now, just log it.
-                console.log('Subcategories loaded:', subcategories);
-            })
-            .catch(error => console.error('Ошибка загрузки подкатегорий:', error))
-            .finally(() => this.toggleSpinner(false));
-    }
+    
 
-    loadEntries(categoryName, subcategoryName, highlightEntryId = null) {
-        this.toggleSpinner(true);
-        document.querySelectorAll('.subcategory').forEach(el => el.classList.remove('selected'));
-        const subcatEl = document.querySelector(`p[data-name='${subcategoryName}'][data-category='${categoryName}']`);
-        if (subcatEl) subcatEl.classList.add('selected');
-        
-        fetch(`/get_entry_details?category=${encodeURIComponent(categoryName)}&subcategory=${encodeURIComponent(subcategoryName)}`)
-            .then(response => {
-                if (!response.ok) throw new Error('Сетевая ошибка: ' + response.status);
-                return response.json();
-            })
-            .then(entries => {
-                const entryList = document.getElementById('entry_list');
-                entryList.innerHTML = '';
-                if (entries.length === 0) {
-                    entryList.innerHTML = '<li>Нет записей в этой подкатегории</li>';
-                } else {
-                    entries.forEach(entry => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `<strong>${entry.title}</strong> <a href="#" class="edit-entry-link" data-id="${entry.id}" data-title="${entry.title.replace(/'/g, "'")}" data-urls="${entry.urls.join('\n').replace(/'/g, "'")}">[Редактировать]</a>`;
-                        li.setAttribute('data-entry-id', entry.id);
-                        if (entry.urls && entry.urls.length > 0) {
-                            const ul = document.createElement('ul');
-                            entry.urls.forEach(url => {
-                                const urlLi = document.createElement('li');
-                                urlLi.innerHTML = `<a href="${url}" target="_blank">${url}</a>`;
-                                ul.appendChild(urlLi);
-                            });
-                            li.appendChild(ul);
-                        }
-                        entryList.appendChild(li);
-                    });
-                    document.querySelectorAll('.edit-entry-link').forEach(a => {
-                        a.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            this.showEditForm(a.dataset.id, a.dataset.title, a.dataset.urls);
-                        });
-                    });
-
-                    if (highlightEntryId) {
-                        const entryToHighlight = entryList.querySelector(`li[data-entry-id="${highlightEntryId}"]`);
-                        if (entryToHighlight) {
-                            entryToHighlight.classList.add('newly-added');
-                            setTimeout(() => {
-                                entryToHighlight.classList.remove('newly-added');
-                            }, 2000);
-                        }
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Ошибка загрузки записей:', error);
-                document.getElementById('entry_list').innerHTML = '<li>Ошибка загрузки записей</li>';
-            })
-            .finally(() => this.toggleSpinner(false));
-    }
+    
 
     showEditForm(entryId, title, urls) {
         document.getElementById('edit_entry_id_form').value = entryId;
@@ -679,35 +626,77 @@ class CatalogApp {
         document.getElementById('edit_entry_form').style.display = 'block';
     }
 
-    saveEntryEdit() {
-        this.toggleSpinner(true);
-        const entryId = document.getElementById('edit_entry_id_form').value;
-        const newTitle = document.getElementById('edit_entry_title_form').value;
-        const newUrls = document.getElementById('edit_urls_form').value.split('\n').filter(url => url.trim());
-        fetch('/edit_entry', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entry_id: entryId, new_title: newTitle, new_urls: newUrls })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('edit_entry_form').style.display = 'none';
-                    const activeCategory = document.querySelector('.category.selected');
-                    const activeSubcategory = document.querySelector('.subcategory.selected');
-                    if (activeCategory && activeSubcategory) {
-                        this.loadEntries(activeCategory.dataset.name, activeSubcategory.dataset.name);
-                    } else {
-                        location.reload();
-                    }
-                }
-            })
-            .catch(error => console.error('Ошибка сохранения записи:', error))
-            .finally(() => this.toggleSpinner(false));
-    }
+    
 
     cancelEdit() {
         document.getElementById('edit_entry_form').style.display = 'none';
+    }
+
+    // --- URL Editing --- 
+
+    setupUrlEditingEventListeners() {
+        const entryList = document.getElementById('entry_list');
+        entryList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('edit-url-link')) {
+                e.preventDefault();
+                const urlLi = e.target.closest('li[data-url-id]');
+                this.showUrlEditForm(urlLi);
+            }
+        });
+    }
+
+    showUrlEditForm(urlLiElement) {
+        const originalContent = urlLiElement.innerHTML; // Store the original HTML
+        const urlId = urlLiElement.dataset.urlId;
+        const urlText = urlLiElement.querySelector('.url-display a').textContent;
+        const descriptionText = urlLiElement.querySelector('.url-description').textContent;
+
+        urlLiElement.innerHTML = `
+            <div class="url-edit-form">
+                <input type="text" class="edit-url-input" value="${urlText}">
+                <input type="text" class="edit-description-input" value="${descriptionText}" placeholder="Описание">
+                <button class="save-url-btn" data-id="${urlId}">Сохранить</button>
+                <button class="cancel-url-btn">Отмена</button>
+            </div>
+        `;
+
+        urlLiElement.querySelector('.save-url-btn').addEventListener('click', (e) => {
+            const newUrl = urlLiElement.querySelector('.edit-url-input').value;
+            const newDescription = urlLiElement.querySelector('.edit-description-input').value;
+            this.saveUrlEdit(urlId, newUrl, newDescription);
+        });
+
+        urlLiElement.querySelector('.cancel-url-btn').addEventListener('click', () => {
+            urlLiElement.innerHTML = originalContent; // Restore the original HTML
+        });
+    }
+
+    async saveUrlEdit(urlId, newUrl, newDescription) {
+        this.toggleSpinner(true);
+        const options = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: newUrl, description: newDescription })
+        };
+
+        try {
+            const data = await this._fetchJSON(`/update_url/${urlId}`, options);
+            if (data.status === 'success') {
+                this.showFlashMessage(data.message, 'success');
+                // Перезагружаем список для отображения изменений
+                const activeCategory = document.querySelector('.category.selected');
+                const activeSubcategory = document.querySelector('.subcategory.selected');
+                if (activeCategory && activeSubcategory) {
+                    this.loadEntries(activeCategory.dataset.name, activeSubcategory.dataset.name);
+                }
+            } else {
+                this.showFlashMessage(data.message, 'error');
+            }
+        } catch (error) {
+            this.showFlashMessage(`Ошибка сохранения URL: ${error.message}`, 'error');
+        } finally {
+            this.toggleSpinner(false);
+        }
     }
 }
 

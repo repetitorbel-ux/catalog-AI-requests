@@ -19,5 +19,6 @@ class Entry(db.Model):
 
 class Url(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    url = db.Column(db.String(500), nullable=False)
+    url = db.Column(db.String, nullable=False)
+    description = db.Column(db.String, nullable=True)
     entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)

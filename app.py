@@ -31,6 +31,20 @@ def create_app(config_overrides=None, skip_db_create_all=False):
     db.init_app(app)
 
     # Установка search_path для Neon DB через событие SQLAlchemy.
+    # Это решает проблему "unsupported startup parameter" при работе с пулером,
+    # а также ошибку "no schema has been selected" при создании таблиц.
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    @event.listens_for(Engine, "connect")
+    def set_search_path(dbapi_connection, connection_record):
+        # Используем прокси-объект `db` для доступа к текущему движку
+        if db.engine.dialect.name == 'postgresql':
+            cursor = dbapi_connection.cursor()
+            cursor.execute("SET search_path TO public")
+            cursor.close()
+
+    # Установка search_path для Neon DB через событие SQLAlchemy.
     # Это решает проблему "unsupported startup parameter" при работе с пулером.
     from sqlalchemy import event
     from sqlalchemy.engine import Engine

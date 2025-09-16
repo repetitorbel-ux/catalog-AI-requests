@@ -47,6 +47,8 @@ def add():
         entry_title = data.get('entry_title')
         urls_str = data.get('urls', '')
         urls = [url.strip() for url in urls_str.split('\n') if url.strip()]
+        url_descriptions_str = data.get('url_descriptions', '')
+        url_descriptions = [desc.strip() for desc in url_descriptions_str.split('\n')]
 
         if not all([category_name, subcategory_name, entry_title, urls]):
             return jsonify({'status': 'error', 'message': 'Все поля должны быть заполнены.'}), 400
@@ -79,8 +81,9 @@ def add():
         
         db.session.flush() # Flush to get entry.id
 
-        for url_str in urls:
-            db.session.add(Url(url=url_str, entry_id=entry.id))
+        for i, url_str in enumerate(urls):
+            description = url_descriptions[i] if i < len(url_descriptions) else ""
+            db.session.add(Url(url=url_str, description=description, entry_id=entry.id))
         
         db.session.commit()
         logger.info(f"Запись '{entry_title}' успешно добавлена/обновлена.")
@@ -115,9 +118,13 @@ def edit():
         Url.query.filter_by(entry_id=entry_id).delete()
         urls_str = data.get('urls', '')
         urls = [url.strip() for url in urls_str.split('\n') if url.strip()] if urls_str else []
-        for url_str in urls:
+        url_descriptions_str = data.get('url_descriptions', '')
+        url_descriptions = [desc.strip() for desc in url_descriptions_str.split('\n')] if url_descriptions_str else []
+
+        for i, url_str in enumerate(urls):
             if url_str:
-                db.session.add(Url(url=url_str, entry_id=entry_id))
+                description = url_descriptions[i] if i < len(url_descriptions) else ""
+                db.session.add(Url(url=url_str, description=description, entry_id=entry_id))
         db.session.commit()
         flash(f"Запись '{entry.title}' успешно обновлена.", 'success')
         logger.info(f"Отредактирована запись: '{entry.title}' (ID: {entry_id})")
@@ -283,7 +290,7 @@ def get_entry_details():
                     {
                         'id': entry.id,
                         'title': entry.title,
-                        'urls': [url.url for url in entry.urls]
+                        'urls': [{'id': url.id, 'url': url.url, 'description': url.description} for url in entry.urls]
                     } for entry in entries
                 ]
                 logger.debug(f"Найдено записей: {len(entry_details)} для подкатегории {subcategory_name} в категории {category_name}")
@@ -330,3 +337,19 @@ def export():
     flash("Каталог успешно экспортирован в Markdown.", 'info')
     logger.info("Каталог экспортирован в Markdown")
     return send_file(MARKDOWN_FILE, as_attachment=True)
+
+@catalog_bp.route('/update_url/<int:url_id>', methods=['POST'])
+def update_url(url_id):
+    url_entry = Url.query.get_or_404(url_id)
+    data = request.json
+    new_url = data.get('url', '').strip()
+    new_description = data.get('description', '').strip()
+
+    if not new_url:
+        return jsonify({'status': 'error', 'message': 'URL не может быть пустым.'}), 400
+
+    url_entry.url = new_url
+    url_entry.description = new_description
+    db.session.commit()
+    logger.info(f"URL с ID {url_id} был обновлен.")
+    return jsonify({'status': 'success', 'message': 'URL успешно обновлен.'})
