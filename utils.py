@@ -66,19 +66,24 @@ def restore_backup(backup_filepath):
     db_env = _get_db_env()
     command = [
         'pg_restore',
+        '--dbname', db_env['PGDATABASE'],
         '--clean',
         '--if-exists',
+        '--no-privileges',
+        '--no-owner',
+        '--verbose',
         backup_filepath
     ]
 
     try:
-        process = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', env=db_env)
+        # Let pg_restore write directly to the console without capturing
+        process = subprocess.run(command, check=True, env=db_env)
         logging.info(f"Restored from backup: {os.path.basename(backup_filepath)}")
-        if process.stderr:
-            logging.warning(f"pg_restore stderr: {process.stderr}")
     except FileNotFoundError:
         logging.error("pg_restore command not found. Make sure PostgreSQL client tools are installed and in your PATH.")
         raise
     except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to restore backup. pg_restore exited with error code {e.returncode}: {e.stderr}")
+        # Since output is not captured, we can't log e.stderr here.
+        # The error will be visible in the console.
+        logging.error(f"Failed to restore backup. pg_restore exited with error code {e.returncode}.")
         raise
